@@ -20,6 +20,7 @@ integer, allocatable :: RANDFEROI1(:), RANDFEROI2(:)
 integer npast
 real p,q
 real time
+logical magpart
 
 ! i,j,k = integer variables used in loops
 ! n,m =  number of subdivisions in x and y
@@ -356,3 +357,56 @@ end do
  c = a+(b-a)*c
 
 end subroutine randomica
+
+subroutine magnetic_force(Nf, X1, X2, Di1, Di2,lambda)
+
+  real termo1, termo2, termo3, termo4
+  real rij(2), aux1(Nf), aux2(Nf), r, modrij
+  real MAGFORCE1(Nf), MAGFORCE2(Nf)
+  
+  do i=1,Nf
+  do j=1,Nf
+  if(i.ne.j) then
+  ! Checking the distance between the particles
+  r=( ((X1(i)-X1(j))**2.0) + ((X2(i)-X2(j))**2.0) )**0.5
+  ! If particles are to close we turn off magnetic interactions to avoid overlap
+  if(r.le.2.2) then
+  aux1(j)=0.0
+  aux2(j)=0.0
+  else
+  ! Calculating the vector R_{ij} which connects a particle i to a particle j
+  rij(1)=X1(i)-X1(j)
+  rij(2)=X2(i)-X2(j)
+
+  ! Normalizing vector R_{ij}
+  modrij=((rij(1)**2.0)+(rij(2)**2.0))**0.5
+  rij(1)=rij(1)/modrij
+  rij(2)=rij(2)/modrij
+  
+  termo1=((Di1(i)*Di1(j))+(Di2(i)*Di2(j)))*rij(1)
+  termo2=((Di1(i)*rij(1))+(Di2(i)*rij(2)))*Di1(j)
+  termo3=((Di1(j)*rij(1))+(Di2(j)*rij(2)))*Di1(i)
+  termo4=((Di1(i)*rij(1))+(Di2(i)*rij(2)))*(Di1(j)*rij(1) + Di2(j)*rij(2))*rij(1)
+  
+  aux1(j)=(lambda/(1.0*(r**4.0)))*(termo1+termo2+termo3-5.0*termo4)
+  
+  termo1=((Di1(i)*Di1(j))+(Di2(i)*Di2(j)))*rij(2)
+  termo2=((Di1(i)*rij(1))+(Di2(i)*rij(2)))*Di2(j)
+  termo3=((Di1(j)*rij(1))+(Di2(j)*rij(2)))*Di2(i)
+  termo4=((Di1(i)*rij(1))+(Di2(i)*rij(2)))*(Di1(j)*rij(1) + Di2(j)*rij(2))*rij(2)
+  
+  aux2(j)=(lambda/(1.0*(r**4.0)))*(termo1+termo2+termo3-5*termo4)
+  
+  end if
+  end if
+  end do
+  
+  MAGFORCE1(i)=sum(aux1)
+  MAGFORCE2(i)=sum(aux2)
+   
+  aux1=0.0
+  aux2=0.0
+  end do
+  !FORCA1=FORCA1 + MAGFORCE1
+  !FORCA2=FORCA2 + MAGFORCE2
+  end subroutine magnetic_force
