@@ -10,14 +10,13 @@ real dx, dy, dt, mass, friction
 real, allocatable :: S(:,:), F(:,:)
 integer, allocatable :: SAUX(:)
 real, allocatable :: V1(:),V2(:),X1(:),X2(:)
-real, allocatable :: RAND(:,:)
-real, allocatable :: RANDFERO(:,:)
+real, allocatable :: RAND1(:), RAND2(:)
+real, allocatable :: RANDFERO1(:), RANDFERO2(:) 
 real, allocatable :: FORCA1(:)
 real, allocatable :: FORCA2(:)
 real, allocatable :: FICA(:)
 real EVAP(1) 
-real, allocatable :: KICKS(:,:)
-integer, allocatable :: RANDFEROI(:,:) 
+integer, allocatable :: RANDFEROI1(:), RANDFEROI2(:)  
 integer npast
 real p,q
 real time
@@ -32,12 +31,11 @@ real time
 ! F(:,:) = marker used to account for the trace left by the self-driven particle per cell
 ! SAUX(:) = auxiliar vector used to identify which particle is located in each cell
 ! V1(:), V2(:), X1(:), X2(:) = velocity and position of each particle in both space directions
-! RAND(:,:) = random matrix to simulate a Brownian motion like movement of the particles
+! RAND1(:), RAND2(:) = random vectors to simulate a Brownian motion like movement of the particles
 ! FORCA1(:), FORCA2(:) = forces acting on the particles in the x and y directions
-! RANDFERO(:,:) = random matrix to populate the board with initial traces (real numbers)
-! RANDFEROI(:,:) = random matrix to populate the board with initial traces (integer numbers)
+! RANDFERO1(:), RANDFERO2(:) = random vectors to populate the board with initial traces (real numbers)
+! RANDFEROI1(:), RANDFEROI2(:) = random vectors to populate the board with initial traces (integer numbers)
 ! FICA(:) = random number between 0 and 1 that evaluate the odds of a particle to stay in a given position
-! KICKS(:,:) = random matrix used to kick the particles out of forbiden zones according to the original algorithm
 ! npast = number of time-steps
 ! p = odds of the trace to evaporate
 ! q = odds of a particle to stay in an empty cell
@@ -73,22 +71,24 @@ allocate(V1(Nf))
 allocate(V2(Nf))
 allocate(X1(Nf))
 allocate(X2(Nf))
-allocate(RAND(Nf,2))
-allocate(RANDFERO(n,2))
-allocate(RANDFEROI(n,2))
+allocate(RAND1(Nf))
+allocate(RAND2(Nf))
+allocate(RANDFERO1(n))
+allocate(RANDFERO2(n))
+allocate(RANDFEROI1(n))
+allocate(RANDFEROI2(n))
 allocate(FORCA1(Nf))
 allocate(FORCA2(Nf))
 allocate(FICA(Nf))
-allocate(KICKS(Nf,2))
 
 ! Initial distribution of the self-driven particles
 
-call randomica(xmin,xmax,RAND(:,1),Nf,1)
-call randomica(ymin,ymax,RAND(:,2),Nf,2)
+call randomica(xmin,xmax,RAND1,Nf,1)
+call randomica(ymin,ymax,RAND2,Nf,2)
 
 do i=1,Nf
-X1(i)= RAND(i,1)
-X2(i)= RAND(i,2)
+X1(i)= RAND1(i)
+X2(i)= RAND2(i)
 end do
 
 ! Assemblying the S field (number of particles per cell) 
@@ -122,15 +122,15 @@ write(*,*) 'Initial distribution of particles - ok'
 
 ! Initial random distribution of traces to start the simulation
 
-call randomica(1.0,20.0,RANDFERO(:,1),n,3)
-call randomica(1.0,20.0,RANDFERO(:,2),n,4)
+call randomica(1.0,20.0,RANDFERO1,n,3)
+call randomica(1.0,20.0,RANDFERO2,n,4)
 
 RANDFEROI=RANDFERO
 
 do k=1,n
 do j=1,m
 do i=1,NF
-if(k.eq.RANDFEROI(i,1).and.j.eq.RANDFEROI(i,2))then
+if(k.eq.RANDFEROI1(i).and.j.eq.RANDFEROI2(i))then
 F(k,j)= 1.0
 end if
 end do
