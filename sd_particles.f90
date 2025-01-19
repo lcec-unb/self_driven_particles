@@ -9,10 +9,11 @@ real xmin,xmax,ymin,ymax
 real dx, dy, dt, mass, friction
 real, allocatable :: S(:,:), F(:,:)
 integer, allocatable :: SAUX(:)
-real, allocatable :: V(:,:), X(:,:)
+real, allocatable :: V1(:),V2(:),X1(:),X2(:)
 real, allocatable :: RAND(:,:)
 real, allocatable :: RANDFERO(:,:)
-real, allocatable :: FORCA(:,:)
+real, allocatable :: FORCA1(:)
+real, allocatable :: FORCA2(:)
 real, allocatable :: FICA(:)
 real EVAP(1) 
 real, allocatable :: KICKS(:,:)
@@ -30,9 +31,9 @@ real time
 ! S(:,:) = number of self-driven particles per cell 
 ! F(:,:) = marker used to account for the trace left by the self-driven particle per cell
 ! SAUX(:) = auxiliar vector used to identify which particle is located in each cell
-! V(:,:) e X(:,:) = velocity and position of each particle in both space directions
+! V1(:), V2(:), X1(:), X2(:) = velocity and position of each particle in both space directions
 ! RAND(:,:) = random matrix to simulate a Brownian motion like movement of the particles
-! FORCA(:,:) = random force to move the particles
+! FORCA1(:), FORCA2(:) = forces acting on the particles in the x and y directions
 ! RANDFERO(:,:) = random matrix to populate the board with initial traces (real numbers)
 ! RANDFEROI(:,:) = random matrix to populate the board with initial traces (integer numbers)
 ! FICA(:) = random number between 0 and 1 that evaluate the odds of a particle to stay in a given position
@@ -47,7 +48,7 @@ real time
 n=50
 m=50
 Nl=n*m
-Nf=50
+Nf=150
 xmin=0
 ymin=0
 xmax=10
@@ -68,12 +69,15 @@ dy= (ymax-ymin)/(m-1)
 allocate(S(n,m))
 allocate(SAUX(n*m))
 allocate(F(n,m))
-allocate(V(Nf,2))
-allocate(X(Nf,2))
+allocate(V1(Nf))
+allocate(V2(Nf))
+allocate(X1(Nf))
+allocate(X2(Nf))
 allocate(RAND(Nf,2))
 allocate(RANDFERO(n,2))
 allocate(RANDFEROI(n,2))
-allocate(FORCA(Nf,2))
+allocate(FORCA1(Nf))
+allocate(FORCA2(Nf))
 allocate(FICA(Nf))
 allocate(KICKS(Nf,2))
 
@@ -83,40 +87,38 @@ call randomica(xmin,xmax,RAND(:,1),Nf,1)
 call randomica(ymin,ymax,RAND(:,2),Nf,2)
 
 do i=1,Nf
-X(i,1)= RAND(i,1)
-X(i,2)= RAND(i,2)
+X1(i)= RAND(i,1)
+X2(i)= RAND(i,2)
 end do
 
 ! Assemblying the S field (number of particles per cell) 
 
-do i=1,Nf
+10 do i=1,Nf
 
 do k=1,n
 do j=1,m
-if(X(i,1).ge.(k-1)*dx.and.X(i,1).le.k*dx) then
-if(X(i,2).ge.(j-1)*dy.and.X(i,2).le.j*dy) then
+if(X1(i).ge.(k-1)*dx.and.X1(i).le.k*dx) then
+if(X2(i).ge.(j-1)*dy.and.X2(i).le.j*dy) then
 S(k,j)=S(k,j)+1
 SAUX(k*j)=i
 end if
 end if
-end do
-end do
-
-end do
-
-write(*,*) 'Field S assemblying ok'
 
 ! Checking if there is more than a particle per cell
 
-10 do k=1,n
-   do j=1,m
-   if(S(k,j).gt.1) then
-   ! Kicking the last particle that has entered a populated cell
-   X(SAUX(k*j),1)=X(SAUX(k*j),1)+0.5*dx
-   go to 10   
-   end if
-   end do 
-   end do
+!if(S(k,j).gt.1) then
+!  write(*,*) k, j, SAUX(k*j), S(k,j), X1(SAUX(k*j)), X2(SAUX(k*j))
+  ! Kicking the last particle that has entered a populated cell
+!  X1(SAUX(k*j))=X1(SAUX(k*j))+0.2*dx
+!  X2(SAUX(k*j))=X2(SAUX(k*j))+0.2*dx
+!  go to 10
+!end if
+end do
+end do
+
+end do
+
+write(*,*) 'Initial distribution of particles - ok'
 
 ! Initial random distribution of traces to start the simulation
 
@@ -154,8 +156,8 @@ write(*,*) 'Current time-step',k
 
 ! Generating the random numbers to compute the forces acting in each particle
 
- call randomica(-dx,dx,FORCA(:,1),NF,k) ! Direção x (note o intervalo -dx,dx)
- call randomica(-dy,dy,FORCA(:,2),NF,k+1) ! Direção y (note o intervalo -dy,dy)
+ call randomica(-dx,dx,FORCA1,NF,k) ! Direção x (note o intervalo -dx,dx)
+ call randomica(-dy,dy,FORCA2,NF,k+1) ! Direção y (note o intervalo -dy,dy)
 
 ! Writing in the data file the number of the time zone
 
@@ -168,27 +170,27 @@ do i=1,Nf
  
 ! First, lets calculate the velocity
 
- call resvel(V(i,1),dt,FORCA(i,1),friction,mass) ! x direction
- call resvel(V(i,2),dt,FORCA(i,2),friction,mass) ! y direction
+ call resvel(V1(i),dt,FORCA1(i),friction,mass) ! x direction
+ call resvel(V2(i),dt,FORCA2(i),friction,mass) ! y direction
 
 ! Then, we calculate the position of the self-driven particles
  
- call respos(X(i,1),dt,V(i,1))	! x direction
- call respos(X(i,2),dt,V(i,2))	! y direction
+ call respos(X1(i),dt,V1(i))	! x direction
+ call respos(X2(i),dt,V2(i))	! y direction
 
 ! Avoiding particle scape from the board
 
-if(X(i,1).le.xmin) then
-X(i,1)=X(i,1)+0.1*dx
+if(X1(i).le.xmin) then
+X1(i)=X1(i)+0.1*dx
 end if
-if(X(i,1).ge.xmax) then
-X(i,1)=X(i,1)-0.1*dx
+if(X1(i).ge.xmax) then
+X1(i)=X1(i)-0.1*dx
 end if
-if(X(i,2).le.ymin) then
-X(i,2)=X(i,2)+0.1*dy
+if(X2(i).le.ymin) then
+X2(i)=X2(i)+0.1*dy
 end if
-if(X(i,2).ge.ymax) then
-X(i,2)=X(i,2)-0.1*dy
+if(X2(i).ge.ymax) then
+X2(i)=X2(i)-0.1*dy
 end if
 
 end do
@@ -202,8 +204,9 @@ end do
   do i=1,NF
     do l=1,n
      do j=1,m
-       if(X(i,1).ge.(l-1)*dx.and.X(i,1).le.l*dx) then
-        if(X(i,2).ge.(j-1)*dy.and.X(i,2).le.j*dy) then
+      
+      if(X1(i).ge.(l-1)*dx.and.X1(i).le.l*dx) then
+        if(X2(i).ge.(j-1)*dy.and.X2(i).le.j*dy) then
          S(l,j)=S(l,j)+1
          SAUX(l*j)=i
         end if
@@ -212,13 +215,12 @@ end do
 ! Checking if there is more than a particle per cell
 
          if(S(l,j).gt.1) then
-
-   ! If there is more than a particle per cell we must kick the last invader particle out of the cell 
-  
-         X(SAUX(l*j),1)=X(SAUX(l*j),1)+ FORCA(i,1)*0.1
-         X(SAUX(l*j),2)=X(SAUX(l*j),2)+ FORCA(i,2)*0.1
+   ! If there is more than a particle per cell we must kick the last invader particle out of the cell   
+         X1(SAUX(l*j))=X1(SAUX(l*j))+ FORCA1(i)*0.1
+         X2(SAUX(l*j))=X2(SAUX(l*j))+ FORCA2(i)*0.1
                go to 20   
          end if 
+
        end do
      end do
     end do
@@ -240,11 +242,11 @@ call randomica(0.0,1.0,FICA,Nf,npast+2)
 ! If this number is smaller than q (chance = q) the particle stays in the cell
 ! It this number is bigger thant q (chance = 1-q) the particle must left the cell through a random kick      
 	          if(FICA(SAUX(l*j)).gt.q) then
-            X(SAUX(l*j),1)=X(SAUX(l*j),1)+ FORCA(SAUX(l*j),1)*0.1
-	          X(SAUX(l*j),2)=X(SAUX(l*j),2)+ FORCA(SAUX(l*j),2)*0.1
+            X1(SAUX(l*j))=X1(SAUX(l*j))+ FORCA1(SAUX(l*j))*0.1
+	          X2(SAUX(l*j))=X2(SAUX(l*j))+ FORCA2(SAUX(l*j))*0.1
             else    
-	          X(SAUX(l*j),1)=X(SAUX(l*j),1)
-	          X(SAUX(l*j),2)=X(SAUX(l*j),2)
+	          X1(SAUX(l*j))=X1(SAUX(l*j))
+	          X2(SAUX(l*j))=X2(SAUX(l*j))
             end if
           end if
           end if
@@ -271,7 +273,7 @@ end do
 ! Writting the position and velocity of the particles in a data file
 
 do i=1,Nf
-write(2,'(F12.4,F12.4,F12.4,F12.4)') X(i,1),X(i,2),V(i,1),V(i,2)
+write(2,'(F12.4,F12.4,F12.4,F12.4)') X1(i),X2(i),V1(i),V2(i)
 end do
 
 ! Writting the position of traces in a data file
